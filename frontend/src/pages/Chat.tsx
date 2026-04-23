@@ -1,0 +1,212 @@
+import { useEffect, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { ArrowLeft, BookOpen, Plus, MessageSquare, Trash2, PanelLeft, X } from 'lucide-react'
+import { getModule, getSessions, createSession, deleteSession } from '../lib/api'
+import type { Module, ChatSession } from '../lib/api'
+import { ChatWindow } from '../components/ChatWindow'
+import { cn } from '../lib/utils'
+
+export default function Chat() {
+  const { id } = useParams<{ id: string }>()
+  const moduleId = Number(id)
+  const [module, setModule] = useState<Module | null>(null)
+  const [error, setError] = useState('')
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    getModule(moduleId)
+      .then(setModule)
+      .catch(() => setError('Module not found.'))
+  }, [moduleId])
+
+  useEffect(() => {
+    if (!module) return
+    getSessions(moduleId).then((list) => {
+      setSessions(list)
+      if (list.length > 0) setActiveSessionId(list[0].id)
+    })
+  }, [module, moduleId])
+
+  async function handleNewChat() {
+    const session = await createSession(moduleId)
+    setSessions((prev) => [session, ...prev])
+    setActiveSessionId(session.id)
+    setSidebarOpen(false)
+  }
+
+  async function handleDeleteSession(sessionId: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    await deleteSession(sessionId)
+    const remaining = sessions.filter((s) => s.id !== sessionId)
+    setSessions(remaining)
+    if (activeSessionId === sessionId) {
+      setActiveSessionId(remaining.length > 0 ? remaining[0].id : null)
+    }
+  }
+
+  function handleSessionSelect(sessionId: number) {
+    setActiveSessionId(sessionId)
+    setSidebarOpen(false)
+  }
+
+  function handleSessionTitleChange(sessionId: number, title: string) {
+    setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, title } : s)))
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-zinc-400">{error}</p>
+          <Link to="/" className="mt-4 inline-block text-sm text-orange-400 hover:text-orange-300">
+            Back to modules
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const sidebarContent = (
+    <>
+      <div className="p-3">
+        <button
+          onClick={handleNewChat}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-zinc-300 transition hover:border-orange-500/40 hover:text-white"
+        >
+          <Plus size={14} />
+          New Chat
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-0.5 px-2 pb-3">
+        {sessions.length === 0 && (
+          <p className="px-3 py-6 text-center text-xs text-zinc-600">No chats yet</p>
+        )}
+        {sessions.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => handleSessionSelect(s.id)}
+            className={cn(
+              'group flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left transition',
+              activeSessionId === s.id
+                ? 'bg-orange-500/15 text-white'
+                : 'text-zinc-400 hover:bg-white/[0.05] hover:text-white',
+            )}
+          >
+            <MessageSquare size={13} className="shrink-0" />
+            <span className="flex-1 truncate text-xs">{s.title}</span>
+            <Trash2
+              size={13}
+              className="shrink-0 opacity-0 transition group-hover:opacity-100 hover:text-red-400"
+              onClick={(e) => handleDeleteSession(s.id, e)}
+            />
+          </button>
+        ))}
+      </div>
+    </>
+  )
+
+  return (
+    <div className="flex h-screen flex-col">
+      {/* Header */}
+      <header className="flex shrink-0 items-center gap-3 border-b border-white/[0.07] px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-4">
+        {/* Mobile sidebar toggle */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-white md:hidden"
+        >
+          <PanelLeft size={17} />
+        </button>
+
+        <Link
+          to="/"
+          className="flex items-center gap-1.5 text-sm text-zinc-400 transition hover:text-white"
+        >
+          <ArrowLeft size={15} />
+          <span className="hidden sm:inline">Modules</span>
+        </Link>
+
+        {module && (
+          <>
+            <span className="text-zinc-700">/</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-400">
+                <BookOpen size={13} />
+              </div>
+              <span className="truncate text-sm font-medium text-white">{module.name}</span>
+              {module.description && (
+                <span className="hidden text-xs text-zinc-500 lg:block">
+                  — {module.description}
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </header>
+
+      {/* Body */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        {/* Mobile backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar — drawer on mobile, static on desktop */}
+        <aside
+          className={cn(
+            'flex flex-col border-r border-white/[0.07] bg-[#09090b] transition-transform duration-300',
+            // Mobile: fixed drawer
+            'fixed inset-y-0 left-0 z-30 w-72 md:relative md:inset-auto md:z-auto md:w-60 md:translate-x-0 md:shrink-0',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          )}
+        >
+          {/* Mobile drawer header */}
+          <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 md:hidden">
+            <span className="text-sm font-medium text-white">Chats</span>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white transition"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {sidebarContent}
+        </aside>
+
+        {/* Chat area */}
+        <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden px-3 py-4 sm:px-6 sm:py-6">
+          <div className="mx-auto flex h-full min-h-0 min-w-0 w-full max-w-3xl flex-col">
+            {!module ? (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+              </div>
+            ) : activeSessionId ? (
+              <ChatWindow
+                key={activeSessionId}
+                moduleName={module.name}
+                sessionId={activeSessionId}
+                onTitleChange={(title) => handleSessionTitleChange(activeSessionId, title)}
+              />
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-400">
+                  <MessageSquare size={28} />
+                </div>
+                <p className="text-sm text-zinc-400">
+                  Tap <strong className="text-white">the sidebar icon</strong> to start a new chat.
+                </p>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
