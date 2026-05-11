@@ -100,6 +100,9 @@ export const createSession = (moduleId: number): Promise<ChatSession> =>
 export const deleteSession = (sessionId: number): Promise<void> =>
   api.delete(`/sessions/${sessionId}`).then(() => undefined)
 
+export const renameSession = (sessionId: number, title: string): Promise<ChatSession> =>
+  api.patch(`/sessions/${sessionId}`, { title }).then((r) => r.data)
+
 export const getMessages = (sessionId: number): Promise<MessageResponse[]> =>
   api.get(`/sessions/${sessionId}/messages`).then((r) => r.data)
 

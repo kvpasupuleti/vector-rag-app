@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Plus, MessageSquare, Trash2, PanelLeft, X } from 'lucide-react'
-import { getModule, getSessions, createSession, deleteSession } from '../lib/api'
+import { ArrowLeft, BookOpen, Plus, MessageSquare, Pencil, Trash2, PanelLeft, X } from 'lucide-react'
+import { getModule, getSessions, createSession, deleteSession, renameSession } from '../lib/api'
 import type { Module, ChatSession } from '../lib/api'
 import { ChatWindow } from '../components/ChatWindow'
 import { cn } from '../lib/utils'
@@ -14,6 +14,9 @@ export default function Chat() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+  const editInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     getModule(moduleId)
@@ -55,6 +58,26 @@ export default function Chat() {
     setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, title } : s)))
   }
 
+  function startEditing(sessionId: number, currentTitle: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    setEditingSessionId(sessionId)
+    setEditingTitle(currentTitle)
+    setTimeout(() => editInputRef.current?.select(), 0)
+  }
+
+  async function commitRename(sessionId: number) {
+    const trimmed = editingTitle.trim()
+    if (trimmed && trimmed !== sessions.find((s) => s.id === sessionId)?.title) {
+      const updated = await renameSession(sessionId, trimmed)
+      setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, title: updated.title } : s)))
+    }
+    setEditingSessionId(null)
+  }
+
+  function cancelEditing() {
+    setEditingSessionId(null)
+  }
+
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -87,7 +110,7 @@ export default function Chat() {
         {sessions.map((s) => (
           <button
             key={s.id}
-            onClick={() => handleSessionSelect(s.id)}
+            onClick={() => editingSessionId !== s.id && handleSessionSelect(s.id)}
             className={cn(
               'group flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left transition',
               activeSessionId === s.id
@@ -96,7 +119,32 @@ export default function Chat() {
             )}
           >
             <MessageSquare size={13} className="shrink-0" />
-            <span className="flex-1 truncate text-xs">{s.title}</span>
+            {editingSessionId === s.id ? (
+              <input
+                ref={editInputRef}
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onBlur={() => commitRename(s.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); commitRename(s.id) }
+                  if (e.key === 'Escape') { e.preventDefault(); cancelEditing() }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 min-w-0 rounded bg-white/[0.08] px-1.5 py-0.5 text-xs text-white outline-none ring-1 ring-orange-500/60 focus:ring-orange-400"
+              />
+            ) : (
+              <span
+                className="flex-1 truncate text-xs"
+                onDoubleClick={(e) => startEditing(s.id, s.title, e)}
+              >
+                {s.title}
+              </span>
+            )}
+            <Pencil
+              size={13}
+              className="shrink-0 opacity-0 transition group-hover:opacity-100 hover:text-orange-400"
+              onClick={(e) => startEditing(s.id, s.title, e)}
+            />
             <Trash2
               size={13}
               className="shrink-0 opacity-0 transition group-hover:opacity-100 hover:text-red-400"
