@@ -106,6 +106,25 @@ export const renameSession = (sessionId: number, title: string): Promise<ChatSes
 export const getMessages = (sessionId: number): Promise<MessageResponse[]> =>
   api.get(`/sessions/${sessionId}/messages`).then((r) => r.data)
 
+// ── Usage Logs ────────────────────────────────────────────────────────────────
+
+export interface UsageLogPayload {
+  session_id?: number
+  module_id?: number
+  event_type?: string
+}
+
+export interface DailyUsage {
+  date: string
+  count: number
+}
+
+export const logUsage = (payload: UsageLogPayload): Promise<void> =>
+  api.post('/usage/logs', payload).then(() => undefined)
+
+export const getUsageLogs = (days = 30): Promise<DailyUsage[]> =>
+  api.get('/usage/logs', { params: { days } }).then((r) => r.data)
+
 // ── Streaming Chat ─────────────────────────────────────────────────────────────
 
 export function streamChat(

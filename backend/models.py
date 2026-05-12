@@ -34,3 +34,11 @@ class ChatMessage(SQLModel, table=True):
     content: str
     sources: Optional[str] = Field(default=None)  # JSON-encoded list of filenames
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UsageLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: Optional[int] = Field(default=None, foreign_key="chatsession.id", index=True)
+    module_id: Optional[int] = Field(default=None, foreign_key="module.id", index=True)
+    event_type: str = Field(default="message_sent")  # message_sent
+    created_at: datetime = Field(default_factory=datetime.utcnow)

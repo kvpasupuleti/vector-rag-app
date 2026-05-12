@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Plus, MessageSquare, Pencil, Trash2, PanelLeft, X } from 'lucide-react'
-import { getModule, getSessions, createSession, deleteSession, renameSession } from '../lib/api'
+import { getModule, getSessions, createSession, deleteSession, renameSession, logUsage } from '../lib/api'
 import type { Module, ChatSession } from '../lib/api'
 import { ChatWindow } from '../components/ChatWindow'
+import { AppSidebar } from '../components/AppSidebar'
+import type { NavItem } from '../components/AppSidebar'
+import { UsagePanel } from '../components/UsagePanel'
 import { cn } from '../lib/utils'
 
 export default function Chat() {
@@ -16,6 +19,7 @@ export default function Chat() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const [activeNav, setActiveNav] = useState<NavItem>('home')
   const editInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -78,6 +82,17 @@ export default function Chat() {
     setEditingSessionId(null)
   }
 
+  function handleNavChange(nav: NavItem) {
+    setActiveNav(nav)
+    if (nav === 'home') setSidebarOpen(false)
+  }
+
+  function handleMessageSent() {
+    logUsage({ session_id: activeSessionId ?? undefined, module_id: moduleId }).catch(() => {
+      // fire-and-forget — ignore errors
+    })
+  }
+
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -91,7 +106,7 @@ export default function Chat() {
     )
   }
 
-  const sidebarContent = (
+  const sessionSidebarContent = (
     <>
       <div className="p-3">
         <button
@@ -196,7 +211,7 @@ export default function Chat() {
 
       {/* Body */}
       <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        {/* Mobile backdrop */}
+        {/* Mobile backdrop for session sidebar */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
@@ -204,33 +219,49 @@ export default function Chat() {
           />
         )}
 
-        {/* Sidebar — drawer on mobile, static on desktop */}
-        <aside
-          className={cn(
-            'flex flex-col border-r border-white/[0.07] bg-[#09090b] transition-transform duration-300',
-            // Mobile: fixed drawer
-            'fixed inset-y-0 left-0 z-30 w-72 md:relative md:inset-auto md:z-auto md:w-60 md:translate-x-0 md:shrink-0',
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          )}
-        >
-          {/* Mobile drawer header */}
-          <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 md:hidden">
-            <span className="text-sm font-medium text-white">Chats</span>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white transition"
-            >
-              <X size={16} />
-            </button>
-          </div>
+        {/* App navigation sidebar — always visible */}
+        <AppSidebar activeNav={activeNav} onNavChange={handleNavChange} />
 
-          {sidebarContent}
-        </aside>
+        {/* Usage panel — visible on desktop when usage nav is active */}
+        {activeNav === 'usage' && (
+          <div className="hidden md:flex">
+            <UsagePanel />
+          </div>
+        )}
+
+        {/* Session list sidebar — drawer on mobile, static on desktop when home nav is active */}
+        {activeNav !== 'usage' && (
+          <aside
+            className={cn(
+              'flex flex-col border-r border-white/[0.07] bg-[#09090b] transition-transform duration-300',
+              'fixed inset-y-0 left-0 z-30 w-72 md:relative md:inset-auto md:z-auto md:w-60 md:translate-x-0 md:shrink-0',
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+            )}
+          >
+            {/* Mobile drawer header */}
+            <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 md:hidden">
+              <span className="text-sm font-medium text-white">Chats</span>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {sessionSidebarContent}
+          </aside>
+        )}
 
         {/* Chat area */}
         <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden px-3 py-4 sm:px-6 sm:py-6">
           <div className="mx-auto flex h-full min-h-0 min-w-0 w-full max-w-3xl flex-col">
-            {!module ? (
+            {activeNav === 'usage' ? (
+              /* Mobile usage panel shown in main area */
+              <div className="md:hidden flex-1">
+                <UsagePanel />
+              </div>
+            ) : !module ? (
               <div className="flex flex-1 items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
               </div>
@@ -240,6 +271,7 @@ export default function Chat() {
                 moduleName={module.name}
                 sessionId={activeSessionId}
                 onTitleChange={(title) => handleSessionTitleChange(activeSessionId, title)}
+                onMessageSent={handleMessageSent}
               />
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
@@ -257,4 +289,3 @@ export default function Chat() {
     </div>
   )
 }
-
