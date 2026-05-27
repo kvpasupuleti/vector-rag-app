@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import create_db_and_tables
-from routers import chat, documents, modules
+from routers import chat, documents, modules, usage
 
 _BACKEND_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _BACKEND_DIR.parent
@@ -46,6 +46,7 @@ app.add_middleware(
 app.include_router(modules.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(usage.router, prefix="/api")
 
 
 @app.get("/api/health")

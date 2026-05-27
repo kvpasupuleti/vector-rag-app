@@ -11,6 +11,7 @@ interface ChatWindowProps {
   moduleName: string
   sessionId: number
   onTitleChange: (title: string) => void
+  onMessageSent?: () => void
 }
 
 interface UIMessage {
@@ -19,7 +20,7 @@ interface UIMessage {
   sources: string[]
 }
 
-export function ChatWindow({ moduleName, sessionId, onTitleChange }: ChatWindowProps) {
+export function ChatWindow({ moduleName, sessionId, onTitleChange, onMessageSent }: ChatWindowProps) {
   const [messages, setMessages] = useState<UIMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -69,6 +70,8 @@ export function ChatWindow({ moduleName, sessionId, onTitleChange }: ChatWindowP
     ])
 
     let capturedSources: string[] = []
+
+    onMessageSent?.()
 
     abortRef.current = streamChat(sessionId, question, (event) => {
       if (event.type === 'sources') {
