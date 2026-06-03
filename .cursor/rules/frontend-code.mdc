@@ -1,0 +1,50 @@
+---
+description: Frontend code patterns for components, pages, and api.ts
+alwaysApply: false
+---
+# Frontend Code Patterns
+
+## api.ts (`frontend/src/lib/api.ts`)
+- Export a TypeScript `interface` for every new backend response shape, co-located with its API function.
+- REST calls: use the `api` axios instance (`api.get/post/delete`).
+- Admin calls: pass `{ headers: { 'x-admin-key': adminKey } }` as the axios config.
+- SSE endpoints: use `fetch` directly (not axios), return `() => void` abort function using `AbortController`.
+- All functions return `Promise<T>` — extract `.then((r) => r.data)` for axios.
+
+## Components (`frontend/src/components/`)
+- Functional components, named exports (not default).
+- Props interface defined inline above the component.
+- `cn()` from `../lib/utils` for conditional class merging — never template-literal class concatenation.
+
+## Pages (`frontend/src/pages/`)
+- Default export.
+- Local `useState` for all data — no global store.
+- Data fetching in `useEffect`; set loading/error states.
+- New pages must be registered in `App.tsx` with a `<Route>`.
+
+## Design Tokens (dark theme — do not deviate)
+| Purpose | Classes |
+|---|---|
+| Page/app background | `bg-[#09090b]` |
+| Card / section surface | `bg-white/[0.03]` — `bg-white/[0.04]` |
+| Borders | `border-white/[0.07]` — `border-white/[0.08]` |
+| Primary text | `text-white` |
+| Secondary text | `text-zinc-300` — `text-zinc-400` |
+| Muted / placeholder | `text-zinc-500` — `text-zinc-600` |
+| CTA buttons | `bg-gradient-to-r from-orange-500 to-amber-500` |
+| Accent / icon color | `text-orange-400`, `bg-orange-500/10` |
+| Error | `border-red-500/20 bg-red-500/10 text-red-400` |
+| Success | `text-emerald-400` |
+| Loading spinner | `h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent` |
+| Input focus | `focus:border-orange-500/50` |
+
+## Icons
+- All icons from `lucide-react`. Do not add a new icon library.
+
+## Rounding
+- Inputs, buttons: `rounded-xl`
+- Cards, panels, sections: `rounded-2xl`
+
+## Clickables
+
+- All clickables with Buttons, Icons, Cards, etc should have a `cursor:pointer` style

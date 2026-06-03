@@ -1,0 +1,31 @@
+---
+globs: backend/routers/*.py
+description: Patterns for FastAPI router files
+---
+
+# Backend Router Patterns
+
+1. **Pydantic models in file** — define request/response `BaseModel` classes at the top of the router file, not in `models.py`. `models.py` is for SQLModel table definitions only.
+
+2. **Every endpoint has `response_model=`** — return the Pydantic response object, never a SQLModel row directly.
+
+3. **DB dependency** — `db: Annotated[Session, Depends(get_session)]`.
+
+4. **Admin protection** — `_: Annotated[None, Depends(require_admin)]` as a parameter (underscore name — not used in body).
+
+5. **404 pattern**:
+   ```python
+   obj = db.get(Model, id)
+   if not obj:
+       raise HTTPException(status_code=404, detail="X not found")
+   ```
+
+6. **409 for duplicates** — `HTTPException(status_code=409, detail="...")` when a unique constraint would be violated.
+
+7. **Background tasks** — accept `BackgroundTasks`, call `background_tasks.add_task(fn, arg1, arg2)`. The task function must open its own `Session(engine)` and import engine locally to avoid circular imports.
+
+8. **New router file** — must be imported in `main.py` and registered with `app.include_router(x.router, prefix="/api")`.
+
+9. **Path conventions** — resource paths: `/modules/{module_id}/resource` for nested, `/resource/{id}` for top-level. Use plural nouns.
+
+10. **Status codes** — `201` for POST create, `202` for accepted/async, `204` for DELETE.

@@ -1,0 +1,35 @@
+---
+globs: backend/services/*.py
+description: Patterns for service modules (ingest, rag, storage, vectorstore)
+---
+
+# Backend Service Patterns
+
+1. **No classes** — services are plain Python modules with top-level functions. No service class wrappers.
+
+2. **Dual cloud/local** — read env var at module top, expose `_is_cloud() -> bool`, branch inside every public function:
+   ```python
+   QDRANT_URL = os.getenv("QDRANT_URL")
+   def _is_cloud() -> bool:
+       return bool(QDRANT_URL)
+   ```
+
+3. **Lazy client imports** — import heavy clients (supabase, qdrant_client, chromadb, langchain_*) inside the function body, not at module top. They are slow to initialise and not needed in every path.
+
+4. **No DB access in services** — services never import `engine` or `get_session`. DB writes happen in the router or background task that calls the service.
+
+5. **Vectorstore** — always `delete_document_vectors(slug, filename)` before `upsert_chunks()` to prevent duplicates on re-upload.
+
+6. **Constants at module top**:
+   ```python
+   LLM_MODEL = "gpt-4o-mini"
+   EMBED_MODEL = "text-embedding-3-small"
+   CHUNK_SIZE = 800
+   CHUNK_OVERLAP = 100
+   ```
+
+7. **Async RAG** — `stream_answer_question` is an `async` generator. Use `await loop.run_in_executor(None, retriever.invoke, question)` for the sync retriever call inside async context.
+
+8. **Exception handling in services** — let exceptions propagate; callers (background tasks / routers) catch and record `doc.status = "error"`.
+
+9. **File path helper** — use `Path(os.getenv("DATA_DIR", "./data")) / ...` for all local paths; call `.mkdir(parents=True, exist_ok=True)` before writing.
