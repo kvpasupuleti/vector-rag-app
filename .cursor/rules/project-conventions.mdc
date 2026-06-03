@@ -1,0 +1,62 @@
+---
+alwaysApply: true
+description: Project architecture, structure, and key patterns for the RAG Knowledge Base app
+---
+
+# Project Conventions
+
+## Stack
+- **Backend**: FastAPI + SQLModel (SQLite dev / Postgres prod) + LangChain + OpenAI (`gpt-4o-mini`, `text-embedding-3-small`) + ChromaDB (local) / Qdrant Cloud (prod) + Supabase Storage (prod) / local filesystem (dev)
+- **Frontend**: React 19 + Vite + Tailwind 4 + axios + react-router-dom + lucide-react + react-markdown
+
+## Backend Layout
+```
+backend/
+  main.py          — FastAPI app, lifespan, CORS, router mounts under /api
+  models.py        — ALL SQLModel table definitions (one file)
+  database.py      — engine, get_session(), create_db_and_tables()
+  auth.py          — require_admin dependency (validates x-admin-key header)
+  routers/         — APIRouter handlers + per-file Pydantic I/O models
+  services/        — pure-function business logic modules (no classes)
+```
+
+## Frontend Layout
+```
+frontend/src/
+  pages/           — full-page route components (Home, Chat, Admin)
+  components/      — reusable UI pieces
+  lib/api.ts       — ALL API calls; exports interfaces + functions
+  lib/utils.ts     — cn() only
+```
+
+## Critical Patterns
+
+### Database
+- Dependency: `db: Annotated[Session, Depends(get_session)]`
+- Primary-key lookup: `db.get(Model, id)`
+- Filtered query: `db.exec(select(Model).where(...)).all()` / `.first()`
+- Background tasks must open their own `Session(engine)` — never receive the request session
+
+### Auth
+- Admin routes: add `_: Annotated[None, Depends(require_admin)]` as a parameter
+- Admin key is passed as `x-admin-key` header from the frontend
+
+### Services — dual cloud/local
+- Check env var at module top: `QDRANT_URL = os.getenv("QDRANT_URL")`
+- `_is_cloud() -> bool` private helper; all public functions branch on it
+- Heavy client imports (supabase, qdrant, chroma) go inside the function body, not at module level
+
+### SSE Streaming
+- Router returns `StreamingResponse(generate(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})`
+- Each event: `f"data: {json.dumps(event_dict)}\n\n"`
+- Event types: `sources` → `token` → `done` (or `error`)
+- Frontend: `fetch` + `ReadableStream` reader; return an abort function `() => void`
+
+### Router Response Models
+- Define Pydantic `BaseModel` response classes in the router file, not in `models.py`
+- Every endpoint has `response_model=`; never return a SQLModel row directly
+
+### Frontend
+- All API calls live in `lib/api.ts`; pages/components import functions from there
+- `cn()` from `lib/utils` for conditional class merging — never string concatenation
+- No global state store; pages use local `useState`

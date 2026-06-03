@@ -1,0 +1,17 @@
+{
+    "version": 1,
+    "hooks": {
+      "beforeShellExecution": [
+        {
+          "command": "./hooks/protected-branch-block-hook.sh"
+        }
+      ],
+      "preToolUse": [
+        {
+          "command": "./hooks/auto-gen-file-read-block-hook.sh",
+          "matcher": "Read"
+        }        
+      ]
+    }
+  }
+  
